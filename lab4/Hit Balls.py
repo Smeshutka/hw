@@ -3,13 +3,14 @@ from pygame.draw import *
 from random import randint
 
 file = open('best_players.txt', 'r')
-lspl = []
-#for line in file:
-    
+lop = []#lop = list of players
+for fline in file:
+    for i in range(len(fline)):
+        if fline[len(fline)-1-i] == ' ':
+            lop.append([fline[0:len(fline)-1-i], int(fline[len(fline)-i:len(fline)-1])])
+file.close()
 print("Please print your nick: ")
 pname = input()
-file.close()
-file = open('best_players.txt', 'a')
 
 pygame.init()
 
@@ -18,7 +19,7 @@ screen = pygame.display.set_mode((1200, 900))
 
 ballsOnScreen = 7 #Задаёт количество мячиков на экране
 specOnScreen = 2
-AndAtTheHourOfDead = 100
+time_of_life = 3.5*FPS
 g = 2
 
 RED = (255, 0, 0)
@@ -70,7 +71,7 @@ def hit(event):
     return hit
 def hitspec(event):
     '''
-    Функция обрабатывает щелчки и возвращает номер шарика в массиве по которому щёлкнули и -1
+    Функция обрабатывает щелчки и возвращает номер специального шарика в массиве по которому щёлкнули и -1
     если не попали по шарику
     event - событие типа Event 
     '''
@@ -114,8 +115,8 @@ def drawballs(ls,sp):
             sp[i][1] = 848
             sp[i][5] = -1*abs(sp[i][5])
         circle(screen, COLORS[sp[i][3]], (sp[i][0],sp[i][1]), sp[i][2])
-        line(screen, BLACK, (sp[i][0]-sp[i][2], sp[i][1]), (sp[i][0]+sp[i][2], sp[i][1]), width = 2)
-        line(screen, BLACK, (sp[i][0], sp[i][1]-sp[i][2]), (sp[i][0], sp[i][1]+sp[i][2]), width = 2)
+        line(screen, BLACK, [sp[i][0]-sp[i][2], sp[i][1]], [sp[i][0]+sp[i][2], sp[i][1]], width = 2)
+        line(screen, BLACK, [sp[i][0], sp[i][1]-sp[i][2]], [sp[i][0], sp[i][1]+sp[i][2]], width = 2)
 
 def killballs(ls,sp):
     '''
@@ -124,16 +125,16 @@ def killballs(ls,sp):
     a=[]
     for i in range(len(ls)):
         ls[i][6] += 1
-        if ls[i][6] >= AndAtTheHourOfDead:
+        if ls[i][6] >= time_of_life:
             a.append(i)
-    for i in range(len(a)):
+    for i in range(len(a)-1,-1,-1):
         ls.pop(a[i])
     a.clear()
     for i in range(len(sp)):
         sp[i][6] += 1
-        if sp[i][6] >= AndAtTheHourOfDead:
+        if sp[i][6] >= time_of_life:
             a.append(i)
-    for i in range(len(a)):
+    for i in range(len(a)-1,-1,-1):
         sp.pop(a[i])
 
 
@@ -146,7 +147,6 @@ while not finished:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             print("Thanks for game! Your score: ", points)
-            file.write(pname + ' ' + str(points) + '\n')
             finished = True
         elif event.type == pygame.MOUSEBUTTONDOWN:
             k = hit(event)
@@ -171,5 +171,17 @@ while not finished:
     pygame.display.update()
     screen.fill(BLACK)
 
+file = open('best_players.txt', 'w')
+flag = 0
+for i in range(len(lop)):
+    if lop[i][0] == pname:
+        flag = 1
+        if lop[i][1] < points:
+            lop[i][1] = points
+if flag == 0:
+    lop.append([pname,points])
+sorted(lop, key=lambda a: a[1]) 
+for i in range(len(lop)):
+    file.write(str(lop[i][0])+' '+str(lop[i][1])+'\n')
 file.close()
 pygame.quit()
