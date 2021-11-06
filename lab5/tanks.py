@@ -90,7 +90,6 @@ class Elastic_Bullet:
             (self.x, self.y),
             self.r
         )
-        self.time +=1
 
     def hittest(self, obj):
         """Функция проверяет сталкивалкивается ли данный обьект с целью, описываемой в обьекте obj.
@@ -148,7 +147,61 @@ class Bullet:
         else:
             return False
  
+
+class Bomb:
+    def __init__(self,screen,x,y):
+        self.screen = screen
+        self.x = x
+        self.y = y
+        self.boom_r = 70
+        self.activ = False
+        self.timer = FPS*3
+        self.boom_time = FPS*0.6
+        self.boom_started = False
+        self.n = random.randint(10,40)
     
+    def check_dang_zone(self,obj):
+        if (self.x-obj.x)**2+(self.y-obj.y)**2 <= (self.boom_r)**2:
+            self.boom_started = True
+    
+    def draw_boom(self):
+        pairs = []
+        for i in range(self.n):
+            r1 = random.randint(55,65)
+            r2 = random.randint(75,85)
+            alpha = i*2*math.pi/self.n
+            x1 = r1*math.cos(alpha)+self.x
+            y1 = r1*math.sin(alpha)+self.y
+            x2 = r2*math.cos(alpha+math.pi/self.n)+self.x
+            y2 = r2*math.sin(alpha+math.pi/self.n)+self.y
+            pairs.append([x1,y1])
+            pairs.append([x2,y2])
+        
+        pygame.draw.polygon(self.screen, (255,137,25),pairs)
+        self.boom_time -= 1
+        
+    def check_activ(self):
+        if self.timer == 0:
+            self.activ = True
+        
+    def draw_dang_zone(self):
+        k = 0.003
+        for i in range(20):
+            pygame.draw.arc(self.screen, BLACK, (self.x-self.boom_r,self.y-self.boom_r,
+                                                 2*self.boom_r,2*self.boom_r),
+                            i*math.pi/10-self.timer*k, i*math.pi/10+math.pi/20-self.timer*k)
+        
+    def draw(self):
+        r = 10
+        a = 8
+        pygame.draw.circle(self.screen, (205,172,0), (self.x,self.y), r)
+        pygame.draw.circle(self.screen, RED, (self.x,self.y), 4)
+        pygame.draw.rect(self.screen, BLACK, (self.x-a/2,self.y-r-2,a,4))
+        pygame.draw.rect(self.screen, BLACK, (self.x-a/2,self.y+r-2,a,4))
+        pygame.draw.rect(self.screen, BLACK, (self.x+r-2,self.y-a/2,4,a))
+        pygame.draw.rect(self.screen, BLACK, (self.x-r-2,self.y-a/2,4,a))
+
+
 class Tank:
     def __init__(self, screen):
         self.screen = screen
@@ -197,7 +250,7 @@ class Tank:
             ar.append(new_ball)
             self.f2_on = 0
             self.f2_power = 10
-            self.cooldawn = 30
+            self.cooldawn = FPS
 
     def draw_tank(self):
         subsur = pygame.Surface((100,50), pygame.SRCALPHA)
@@ -215,7 +268,7 @@ class Tank:
         #pygame.draw.rect(subsur, BLACK, (0,0,a,b),width=2)
         self.screen.blit(subsur, (self.x-a/2, self.y-b/2))
         pygame.draw.arc(self.screen, BLACK,
-                        (self.x+a/2,self.y+b/2,20,20),0,self.cooldawn/30*2*math.pi, width =6)
+                        (self.x+a/2,self.y+b/2,20,20),0,self.cooldawn/FPS*2*math.pi, width =6)
 
     def draw_gun(self):
         mx , my = pygame.mouse.get_pos()
@@ -280,7 +333,7 @@ class Target:
         self.y = random.randint(300, 550)
         self.r = random.randint(10, 50)
         self.vx = random.randint(-10,10)*k
-        self.vy = 0#random.randint(-10,10)*k
+        self.vy = random.randint(-10,10)*k
         self.hp = 3
     
     def move(self, ay=0, ax=0):
@@ -324,6 +377,7 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 elastic_bullets = []
 bullets = []
 targets = []
+bombs = []
 points = 0
 fw, fa, fs, fd = 0, 0, 0, 0
 mg_start = 0
@@ -341,10 +395,21 @@ while not finished:
     tank.draw_gun()
     for t in targets:
         t.draw()
+        
     for eb in elastic_bullets:
         eb.draw()
+        
     for b in bullets:
         b.draw()
+        
+    for bomb in bombs:
+        if bomb.boom_started and bomb.boom_time > 0:
+            bomb.draw_boom()
+        else:
+            bomb.draw()
+            if bomb.activ: 
+                bomb.draw_dang_zone()
+        
     f = pygame.font.Font(None, 36)
     text = f.render('Score:' + str(points), 1, (0, 0, 0))
     screen.blit(text, (0, 20))
@@ -375,6 +440,8 @@ while not finished:
                 fs = 1
             if event.key == pygame.K_d:
                 fd = 1
+            if event.key == pygame.K_SPACE:
+                bombs.append(Bomb(screen, tank.x,tank.y))
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_w:
                 fw = 0
@@ -395,10 +462,12 @@ while not finished:
         tank.turn_left()
     elif fa == 0 and fd == 1:
         tank.turn_right()
+        
     while len(targets)<TARGETS_ON_SCREEN:
         targets.append(Target(screen))
 
     for eb in elastic_bullets:
+        eb.time += 1
         eb.move()
         if eb.check_death():
             elastic_bullets.remove(eb)
@@ -423,7 +492,19 @@ while not finished:
         t.move()
         if t.hp <= 0:
             targets.remove(t)
-        
+            
+    for bomb in bombs:
+        bomb.timer -= 1
+        if bomb.boom_started:
+            bomb.boom_time -= 1
+        bomb.check_activ()
+        if bomb.activ:
+            for t in targets:
+                bomb.check_dang_zone(t)
+            bomb.check_dang_zone(tank)
+        if bomb.boom_time <= 0:
+            bombs.remove(bomb)
+
     if tank.cooldawn > 0:
         tank.cooldawn -= 1
     if tank.mg_cd > 0:
