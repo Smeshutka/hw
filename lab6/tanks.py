@@ -20,27 +20,10 @@ GAME_COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN]
 WIDTH = 1500
 HEIGHT = 900
 TARGETS_ON_SCREEN = 2
+HARD_TARGETS_ON_SCREEN = 2
 TIME_OF_LIFE = FPS * 2
 
 
-'''class Wall:
-    def __init__(self, screen, x0, y0, l, transponse = False):
-        self.screen = screen
-        self.len = l
-        self.tr = transponse
-        self.x0 = x0
-        self.y0 = y0
-        self.width = 20
-        if self.tr:
-            self.x1 = self.x0 + self.width
-            self.y1 = self.y0 + l
-        else:
-            self.x1 = self.x0 + l
-            self.y1 = self.y0 + self.width
-    
-    def draw(self):
-        pygame.draw.rect(self.screen, GREY, (self.x,self.y, l,self.width))'''
-    
 class Elastic_Bullet:
     def __init__(self, screen: pygame.Surface, x=40, y=450):
         """ Конструктор класса bullet
@@ -155,29 +138,34 @@ class Bomb:
         self.y = y
         self.boom_r = 70
         self.activ = False
-        self.timer = FPS*3
+        self.timer = FPS*0.1
         self.boom_time = FPS*0.6
         self.boom_started = False
         self.n = random.randint(10,40)
-    
-    def check_dang_zone(self,obj):
-        if (self.x-obj.x)**2+(self.y-obj.y)**2 <= (self.boom_r)**2:
-            self.boom_started = True
-    
-    def draw_boom(self):
-        pairs = []
+        self.vy = 0
+        self.pairs = []
         for i in range(self.n):
             r1 = random.randint(55,65)
             r2 = random.randint(75,85)
-            alpha = i*2*math.pi/self.n
+            alpha = i*2*math.pi/self.n + (random.random()-0.5)/5
             x1 = r1*math.cos(alpha)+self.x
             y1 = r1*math.sin(alpha)+self.y
             x2 = r2*math.cos(alpha+math.pi/self.n)+self.x
             y2 = r2*math.sin(alpha+math.pi/self.n)+self.y
-            pairs.append([x1,y1])
-            pairs.append([x2,y2])
+            self.pairs.append([x1,y1])
+            self.pairs.append([x2,y2])
+    
+    def check_dang_zone(self,obj):
+        if (self.x-obj.x)**2+(self.y-obj.y)**2 <= (self.boom_r)**2:
+            self.boom_started = True
+            return True
+        else:
+            return False
+    
+    def draw_boom(self):
         
-        pygame.draw.polygon(self.screen, (255,137,25),pairs)
+        
+        pygame.draw.polygon(self.screen, (255,137,25),self.pairs)
         self.boom_time -= 1
         
     def check_activ(self):
@@ -200,6 +188,10 @@ class Bomb:
         pygame.draw.rect(self.screen, BLACK, (self.x-a/2,self.y+r-2,a,4))
         pygame.draw.rect(self.screen, BLACK, (self.x+r-2,self.y-a/2,4,a))
         pygame.draw.rect(self.screen, BLACK, (self.x-r-2,self.y-a/2,4,a))
+        
+    def move(self):
+        self.y += self.vy
+        self.vy += 0.3
 
 
 class Tank:
@@ -226,8 +218,8 @@ class Tank:
             dx = 40*math.cos(self.an) + 15*math.sin(self.an)
             dy = -40*math.sin(self.an) + 15*math.cos(self.an)
             new_bullet = Bullet(self.screen, self.x+dx, self.y+dy, self.an)
-            new_bullet.vx = 10 * math.cos(self.an)*k
-            new_bullet.vy = - 10 * math.sin(self.an)*k
+            new_bullet.vx = 20 * math.cos(self.an)*k
+            new_bullet.vy = - 20 * math.sin(self.an)*k
             ar.append(new_bullet)
             self.mg_cd = 20
             
@@ -315,9 +307,18 @@ class Tank:
         if self.v > -self.MAX_V:
             self.v -= self.dv
     def turn_left(self):
-        self.body_an -= self.dan
+        sub = pygame.Surface((100,50))
+        sub = pygame.transform.rotate(sub, (-self.body_an+self.dan)*180/math.pi)
+        a,b = sub.get_size()
+        
+        if self.x-a/2 > 0 and self.x+a/2 < WIDTH and self.y-b/2 > 0 and self.y+b/2 < HEIGHT:
+            self.body_an -= self.dan
     def turn_right(self):
-        self.body_an += self.dan
+        sub = pygame.Surface((100,50))
+        sub = pygame.transform.rotate(sub, (-self.body_an-self.dan)*180/math.pi)
+        a,b = sub.get_size()
+        if self.x-a/2 > 0 and self.x+a/2 < WIDTH and self.y-b/2 > 0 and self.y+b/2 < HEIGHT:
+            self.body_an += self.dan
         
     def power_up(self):
         if self.f2_on:
@@ -359,18 +360,48 @@ class Target:
         pygame.draw.circle(self.screen, self.color, (self.x, self.y), self.r)
 
 
-    '''class Hard_Target:
-        def __init__(self, screen):
-            self.screen = screen
-            self.r = random.randint(10,20)
-            self.x =
-            self.y =
-            self.vx =
-            self.vy = 
-        def draw(self):
-            pygame.draw.circle(self.screen, ,,)
-            pygame.draw.line(self.screen, , )
-            pygame.draw.line(self.screen, , )'''
+class Hard_Target:
+    def __init__(self, screen):
+        self.screen = screen
+        self.color = random.choice(GAME_COLORS)
+        self.r = random.randint(20,30)
+        self.an = random.random()*2*math.pi
+        self.vbx = random.randint(-10,10)
+        self.vby = random.randint(-10,10)
+        self.br = random.randint(50,100)
+        self.bx = random.randint(300,700)
+        self.by = random.randint(300,700)
+        self.x = self.bx+self.br*math.cos(self.an)
+        self.y = self.by-self.br*math.sin(self.an)
+        self.an_speed = (random.random()-0.5)*0.2
+        self.hp = 1
+            
+    def draw(self):
+        pygame.draw.circle(self.screen, self.color, (self.x, self.y), self.r)
+        pygame.draw.line(self.screen, BLACK, (self.x-self.r, self.y), (self.x+self.r, self.y))
+        pygame.draw.line(self.screen, BLACK, (self.x, self.y-self.r), (self.x, self.y+self.r))
+            
+    def move(self):
+        self.bx += self.vbx
+        self.by += self.vby
+        self.an += self.an_speed
+        self.x = self.bx+self.br*math.cos(self.an)
+        self.y = self.by-self.br*math.sin(self.an)
+        if self.x >= WIDTH-self.r:
+            self.x = WIDTH-self.r
+            self.vbx *= -1
+        if self.y >= HEIGHT-self.r:
+            self.y = HEIGHT-self.r
+            self.vby *= -1
+        if self.x <= self.r:
+            self.x = self.r
+            self.vbx *= -1
+        if self.y <= self.r:
+            self.y = self.r
+            self.vby *= -1
+    
+    def drop_bomb(self,ar):
+        ar.append(Bomb(self.screen, self.x, self.y))
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -378,6 +409,7 @@ elastic_bullets = []
 bullets = []
 targets = []
 bombs = []
+hard_targets = []
 points = 0
 fw, fa, fs, fd = 0, 0, 0, 0
 mg_start = 0
@@ -393,6 +425,9 @@ while not finished:
     screen.fill(WHITE)
     tank.draw_tank()
     tank.draw_gun()
+    for ht in hard_targets:
+        ht.draw()
+        
     for t in targets:
         t.draw()
         
@@ -411,7 +446,7 @@ while not finished:
                 bomb.draw_dang_zone()
         
     f = pygame.font.Font(None, 36)
-    text = f.render('Score:' + str(points), 1, (0, 0, 0))
+    text = f.render('Score:' + str(points) + '  HP:' + str(tank.hp), 1, (0, 0, 0))
     screen.blit(text, (0, 20))
     pygame.display.update()
 
@@ -440,8 +475,8 @@ while not finished:
                 fs = 1
             if event.key == pygame.K_d:
                 fd = 1
-            if event.key == pygame.K_SPACE:
-                bombs.append(Bomb(screen, tank.x,tank.y))
+            #if event.key == pygame.K_SPACE:
+            #    bombs.append(Bomb(screen, tank.x,tank.y))
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_w:
                 fw = 0
@@ -465,6 +500,8 @@ while not finished:
         
     while len(targets)<TARGETS_ON_SCREEN:
         targets.append(Target(screen))
+    while len(hard_targets)<HARD_TARGETS_ON_SCREEN:
+        hard_targets.append(Hard_Target(screen))
 
     for eb in elastic_bullets:
         eb.time += 1
@@ -473,38 +510,52 @@ while not finished:
             elastic_bullets.remove(eb)
         for t in targets:
             if eb.hittest(t):
-                points += 1
                 t.hp -= 3
                 elastic_bullets.remove(eb)
+        for ht in hard_targets:
+            if eb.hittest(ht):
+                elastic_bullets.remove(eb)
+                ht.hp -= 1
     
     for b in bullets:
         b.move()
         if b.check_boards():
             bullets.remove(b)
-        if b in bullets:
-            for t in targets:
-                if b.hittest(t):
-                    points += 1
-                    t.hp -= 1
-                    bullets.remove(b)
-    
-    for t in targets:
-        t.move()
-        if t.hp <= 0:
-            targets.remove(t)
-            
+        for t in targets:
+            if b.hittest(t):
+                t.hp -= 1
+                bullets.remove(b)
+        for ht in hard_targets:
+            if b.hittest(ht):
+                bullets.remove(b)
+                ht.hp -= 1
+                    
     for bomb in bombs:
+        bomb.move()
         bomb.timer -= 1
         if bomb.boom_started:
             bomb.boom_time -= 1
         bomb.check_activ()
-        if bomb.activ:
-            for t in targets:
-                bomb.check_dang_zone(t)
-            bomb.check_dang_zone(tank)
+        if bomb.activ  :
+            if bomb.check_dang_zone(tank):
+                tank.hp -= 1
         if bomb.boom_time <= 0:
             bombs.remove(bomb)
-
+    
+    for ht in hard_targets:
+        ht.move()
+        if random.random() < 0.01:
+            ht.drop_bomb(bombs)
+        if ht.hp <= 0:
+            hard_targets.remove(ht)
+            points += 2
+        
+    for t in targets:
+        t.move()
+        if t.hp <= 0:
+            targets.remove(t)
+            points += 1
+            
     if tank.cooldawn > 0:
         tank.cooldawn -= 1
     if tank.mg_cd > 0:

@@ -3,7 +3,7 @@ import random
 import pygame
 
 
-FPS = 30
+FPS = 60
 
 RED = 0xFF0000
 BLUE = 0x0000FF
@@ -38,10 +38,11 @@ class Bullet:
         self.r = 10
         self.vx = 0
         self.vy = 0
+        self.ay = 0.4
         self.color = BLACK
         self.time = 0
 
-    def move(self, ay=0,k=0.99 ):
+    def move(self,k=1 ):
         """Переместить мяч по прошествии единицы времени.
 
         Метод описывает перемещение мяча за один кадр перерисовки. То есть, обновляет значения
@@ -51,7 +52,7 @@ class Bullet:
         
         self.x += self.vx
         self.y += self.vy
-        self.vy += ay
+        self.vy += self.ay
         if self.x >= WIDTH-self.r:
             self.x = WIDTH-self.r
             self.vx *= -k
@@ -101,14 +102,8 @@ class Tank:
         self.f2_power = 10
         self.f2_on = 0
         self.an = 0
-        self.color = GREY
-        self.x = 500
-        self.y = 450
-        self.v = 0
-        self.MAX_V = 5
-        self.body_an = 0
-        self.dan = 0.05
-        self.dv = 0.1
+        self.x = WIDTH/2
+        self.y = HEIGHT-40
 
     def fire2_start(self):
         self.f2_on = 1
@@ -120,19 +115,11 @@ class Tank:
         Начальные значения компонент скорости мяча vx и vy зависят от положения мыши.
         """
         new_ball = Bullet(self.screen, self.x, self.y)
-        new_ball.vx = self.f2_power * math.cos(self.an)
-        new_ball.vy = - self.f2_power * math.sin(self.an)
+        new_ball.vx = 0.3*self.f2_power * math.cos(self.an)
+        new_ball.vy = -0.3* self.f2_power * math.sin(self.an)
         ar.append(new_ball)
         self.f2_on = 0
         self.f2_power = 10
-
-    def draw_tank(self):
-        subsur = pygame.Surface((100,50), pygame.SRCALPHA)
-        pygame.draw.rect(subsur, DARK_GREEN, (0,0,100,50))
-        pygame.draw.rect(subsur, BLACK, (0,0,100,50),width=2)
-        subsur = pygame.transform.rotate(subsur, -self.body_an*180/math.pi)
-        a,b = subsur.get_size()
-        self.screen.blit(subsur, (self.x-a/2, self.y-b/2))
 
     def draw_gun(self):
         mx , my = pygame.mouse.get_pos()
@@ -157,41 +144,29 @@ class Tank:
         self.x += self.v * math.cos(self.body_an)
         self.y += self.v * math.sin(self.body_an)
         
-    def speed_up(self):
-        if self.v < self.MAX_V:
-            self.v += self.dv
-    def speed_down(self):
-        if self.v > -self.MAX_V:
-            self.v -= self.dv
-    def turn_left(self):
-        self.body_an -= self.dan
-    def turn_right(self):
-        self.body_an += self.dan
-        
     def power_up(self):
         if self.f2_on:
             if self.f2_power < 100:
                 self.f2_power += 1
-            self.color = RED
-        else:
-            self.color = GREY
 
 
 class Target:
-    def __init__(self,screen):
+    def __init__(self,screen, ax, ay):
         self.screen = screen
         self.color = random.choice(GAME_COLORS)
         self.x = random.randint(600, 780)
         self.y = random.randint(300, 550)
         self.r = random.randint(10, 50)
-        self.vx = random.randint(-20,20)
-        self.vy = random.randint(-20,20)
+        self.vx = random.randint(-10,10)
+        self.vy = random.randint(-10,10)
+        self.ax = ax
+        self.ay = ay
     
-    def move(self, ay=0, ax=0, k=0.95):
+    def move(self, k=0.95):
         self.x += self.vx
         self.y += self.vy
-        self.vx += ax
-        self.vy += ay
+        self.vx += self.ax
+        self.vy += self.ay
         if self.x >= WIDTH-self.r:
             self.x = WIDTH-self.r
             self.vx *= -k
@@ -215,7 +190,6 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 bullets = []
 targets = []
 points = 0
-fw, fa, fs, fd = 0, 0, 0, 0
     
 clock = pygame.time.Clock()
 tank = Tank(screen)
@@ -225,7 +199,6 @@ finished = False
 while not finished:
     #блок отрисовки
     screen.fill(WHITE)
-    tank.draw_tank()
     tank.draw_gun()
     for t in targets:
         t.draw()
@@ -247,36 +220,10 @@ while not finished:
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
                 tank.fire2_end(bullets)
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_w:
-                fw = 1
-            if event.key == pygame.K_a:
-                fa = 1
-            if event.key == pygame.K_s:
-                fs = 1
-            if event.key == pygame.K_d:
-                fd = 1
-        elif event.type == pygame.KEYUP:
-            if event.key == pygame.K_w:
-                fw = 0
-            if event.key == pygame.K_a:
-                fa = 0
-            if event.key == pygame.K_s:
-                fs = 0
-            if event.key == pygame.K_d:
-                fd = 0
 
     #блок обработки механики
-    if fw == 1 and fs == 0:
-        tank.speed_up()
-    elif fs == 1 and fw == 0:
-        tank.speed_down()
-    if fa == 1 and fd == 0:
-        tank.turn_left()
-    elif fa == 0 and fd == 1:
-        tank.turn_right()
     while len(targets)<TARGETS_ON_SCREEN:
-        targets.append(Target(screen))
+        targets.append(Target(screen,random.random()-0.5,random.random()-0.5))
     for b in bullets:
         b.move()
         if b.check_death():
@@ -288,7 +235,7 @@ while not finished:
                 
     for t in targets:
         t.move()
-    tank.move()
+        
     tank.power_up()
 
 print("Your score:", points)
