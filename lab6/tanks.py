@@ -15,6 +15,7 @@ BLACK = (0, 0, 0)
 WHITE = 0xFFFFFF
 GREY = 0x7D7D7D
 DARK_GREEN = (0, 155, 0)
+LIGHT = (255, 204, 102)
 GAME_COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN]
 
 WIDTH = 1500
@@ -136,6 +137,7 @@ class Bomb:
         self.screen = screen
         self.x = x
         self.y = y
+        self.r = 10 
         self.boom_r = 70
         self.activ = False
         self.timer = FPS*0.1
@@ -144,6 +146,8 @@ class Bomb:
         self.n = random.randint(10,40)
         self.vy = 0
         self.pairs = []
+        
+    def make_pairs(self):
         for i in range(self.n):
             r1 = random.randint(55,65)
             r2 = random.randint(75,85)
@@ -157,13 +161,11 @@ class Bomb:
     
     def check_dang_zone(self,obj):
         if (self.x-obj.x)**2+(self.y-obj.y)**2 <= (self.boom_r)**2:
-            self.boom_started = True
             return True
         else:
             return False
     
     def draw_boom(self):
-        
         
         pygame.draw.polygon(self.screen, (255,137,25),self.pairs)
         self.boom_time -= 1
@@ -180,7 +182,7 @@ class Bomb:
                             i*math.pi/10-self.timer*k, i*math.pi/10+math.pi/20-self.timer*k)
         
     def draw(self):
-        r = 10
+        r = self.r
         a = 8
         pygame.draw.circle(self.screen, (205,172,0), (self.x,self.y), r)
         pygame.draw.circle(self.screen, RED, (self.x,self.y), 4)
@@ -191,20 +193,21 @@ class Bomb:
         
     def move(self):
         self.y += self.vy
-        self.vy += 0.3
+        self.vy += 0.1
 
 
 class Tank:
-    def __init__(self, screen):
+    def __init__(self, screen, color, x, y):
         self.screen = screen
+        self.color = color
         self.f2_power = 10
         self.f2_on = 0
-        self.an = 0
-        self.x = 500
-        self.y = 450
+        self.an = math.pi/2
+        self.x = x
+        self.y = y
         self.v = 0
         self.MAX_V = 2.5*k
-        self.body_an = 0
+        self.body_an = -math.pi/2
         self.dan = 0.05
         self.dv = 0.1
         self.hp = 5
@@ -215,11 +218,11 @@ class Tank:
     
     def use_mg(self, ar):
         if self.mg_cd == 0:
-            dx = 40*math.cos(self.an) + 15*math.sin(self.an)
-            dy = -40*math.sin(self.an) + 15*math.cos(self.an)
-            new_bullet = Bullet(self.screen, self.x+dx, self.y+dy, self.an)
-            new_bullet.vx = 20 * math.cos(self.an)*k
-            new_bullet.vy = - 20 * math.sin(self.an)*k
+            dx = 40*math.cos(-self.body_an) + 15*math.sin(-self.body_an)
+            dy = -40*math.sin(-self.body_an) + 15*math.cos(-self.body_an)
+            new_bullet = Bullet(self.screen, self.x+dx, self.y+dy, -self.body_an)
+            new_bullet.vx = 20 * math.cos(-self.body_an)*k
+            new_bullet.vy = - 20 * math.sin(-self.body_an)*k
             ar.append(new_bullet)
             self.mg_cd = 20
             
@@ -234,19 +237,20 @@ class Tank:
         Начальные значения компонент скорости мяча vx и vy зависят от поворота башни.
         """
         if self.f2_on == 1:
-            dx = 75*math.cos(self.an)
-            dy = -75*math.sin(self.an)
+            dx = 75*math.cos(-self.body_an)
+            dy = -75*math.sin(-self.body_an)
             new_ball = Elastic_Bullet(self.screen, self.x+dx, self.y+dy)
-            new_ball.vx = self.f2_power/4 * math.cos(self.an) *k
-            new_ball.vy = - self.f2_power/4 * math.sin(self.an)*k
+            new_ball.vx = self.f2_power/4 * math.cos(-self.body_an) *k
+            new_ball.vy = - self.f2_power/4 * math.sin(-self.body_an)*k
             ar.append(new_ball)
             self.f2_on = 0
             self.f2_power = 10
             self.cooldawn = FPS
-
+        
     def draw_tank(self):
+        
         subsur = pygame.Surface((100,50), pygame.SRCALPHA)
-        pygame.draw.rect(subsur, DARK_GREEN, (0,0,100,50))
+        pygame.draw.rect(subsur, self.color, (0,0,100,50))
         pygame.draw.rect(subsur, BLACK, (0,0,100,5))
         pygame.draw.rect(subsur, BLACK, (0,45,100,5))
         pygame.draw.rect(subsur, WHITE, (97,10,3,30))
@@ -261,18 +265,19 @@ class Tank:
         self.screen.blit(subsur, (self.x-a/2, self.y-b/2))
         pygame.draw.arc(self.screen, BLACK,
                         (self.x+a/2,self.y+b/2,20,20),0,self.cooldawn/FPS*2*math.pi, width =6)
+        
+        sub = pygame.Surface((20,20), pygame.SRCALPHA)
+        dots = ((0,5),(5,0),(10,5),(15,0),(20,5),(10,20))
+        pygame.draw.polygon(sub, (255,0,0), dots)
+        for i in range(self.hp):
+            self.screen.blit(sub, (self.x-50+25*i, self.y-b/2-30))
 
     def draw_gun(self):
-        mx , my = pygame.mouse.get_pos()
-        if mx > self.x:
-            self.an = -math.atan((my-self.y) / (mx-self.x))
-        if mx < self.x:
-            self.an = -math.atan((my-self.y) / (mx-self.x))+math.pi
 
         subsur = pygame.Surface((150,50), pygame.SRCALPHA)
         
         pygame.draw.rect(subsur, BLACK, (75,40,40,3))
-        pygame.draw.polygon(subsur, DARK_GREEN,
+        pygame.draw.polygon(subsur, self.color,
                             ((50,6), (87,6), (100,18), (100,32), (87,44), (50,44)))
         pygame.draw.rect(subsur, (self.f2_power/100*255,(1-self.f2_power/100)*255,0),
                         (100,18,50/100*self.f2_power,14))
@@ -280,7 +285,7 @@ class Tank:
                             ((50,6), (87,6), (100,18), (100,32), (87,44), (50,44)),width=2)
         pygame.draw.circle(subsur, BLACK, (75,20), 10, width=2)
         pygame.draw.rect(subsur, BLACK, (100,18,50,14),width=2)
-        subsur = pygame.transform.rotate(subsur, self.an*180/math.pi)
+        subsur = pygame.transform.rotate(subsur, -self.body_an*180/math.pi)
         a,b = subsur.get_size()
         #pygame.draw.rect(subsur, BLACK, (0,0,a,b),width=2)
         self.screen.blit(subsur, (self.x-a/2, self.y-b/2))
@@ -324,6 +329,28 @@ class Tank:
         if self.f2_on:
             if self.f2_power < 100:
                 self.f2_power += 1
+                
+    def hittest(self, bul):
+        al = -self.body_an
+        while al >= math.pi *2:
+            al -= 2*math.pi
+        while al < 0:
+            al += 2*math.pi
+        y = bul.y
+        x = bul.x
+        x1, y1 = 50*math.cos(al)-25*math.sin(al)+self.x,  50*math.sin(al)+25*math.cos(al)+self.y
+        x2, y2 = 50*math.cos(al)+25*math.sin(al)+self.x,  50*math.sin(al)-25*math.cos(al)+self.y
+        x3, y3 = -50*math.cos(al)+25*math.sin(al)+self.x, -50*math.sin(al)-25*math.cos(al)+self.y
+        x4, y4 = -50*math.cos(al)-25*math.sin(al)+self.x, -50*math.sin(al)+25*math.cos(al)+self.y
+        S12 = abs((x1-x)*(y2-y)-(x2-x)*(y1-y))
+        S23 = abs((x2-x)*(y3-y)-(x3-x)*(y2-y))
+        S34 = abs((x3-x)*(y4-y)-(x4-x)*(y3-y))
+        S41 = abs((x4-x)*(y1-y)-(x1-x)*(y4-y))
+        
+        if abs(S12+S23+S34+S41 - 2*100*50)<0.00001:
+            return True
+        else:
+            return False
 
 
 class Target:
@@ -411,20 +438,24 @@ targets = []
 bombs = []
 hard_targets = []
 points = 0
-fw, fa, fs, fd = 0, 0, 0, 0
-mg_start = 0
+w_press, a_press, s_press, d_press = 0, 0, 0, 0
+up_press, left_press, down_press, right_press = 0, 0, 0, 0
+mg_start1, mg_start2 = 0, 0
 k = 0.7
 
 clock = pygame.time.Clock()
-tank = Tank(screen)
+tank1 = Tank(screen,DARK_GREEN, 60, HEIGHT - 60)
+tank2 = Tank(screen,LIGHT, WIDTH-60, HEIGHT - 60)
 
 finished = False
 
 while not finished:
     #блок отрисовки
     screen.fill(WHITE)
-    tank.draw_tank()
-    tank.draw_gun()
+    tank1.draw_tank()
+    tank1.draw_gun()
+    tank2.draw_tank()
+    tank2.draw_gun()
     for ht in hard_targets:
         ht.draw()
         
@@ -446,7 +477,7 @@ while not finished:
                 bomb.draw_dang_zone()
         
     f = pygame.font.Font(None, 36)
-    text = f.render('Score:' + str(points) + '  HP:' + str(tank.hp), 1, (0, 0, 0))
+    text = f.render('Score:' + str(points), 1, (0, 0, 0))
     screen.blit(text, (0, 20))
     pygame.display.update()
 
@@ -457,46 +488,84 @@ while not finished:
             finished = True
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                tank.fire2_start()
+                tank1.fire2_start()
             elif event.button == 3:
-                mg_start = 1
+                mg_start1 = 1
                 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1:
-                tank.fire2_end(elastic_bullets)
+                tank1.fire2_end(elastic_bullets)
             elif event.button == 3:
-                mg_start = 0
+                mg_start1 = 0
         elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_f:
+                tank1.fire2_start()
+            if event.key == pygame.K_g:
+                mg_start1 = 1
+            if event.key == pygame.K_o:
+                tank2.fire2_start()
+            if event.key == pygame.K_p:
+                mg_start2 = 1
             if event.key == pygame.K_w:
-                fw = 1
+                w_press = 1
             if event.key == pygame.K_a:
-                fa = 1
+                a_press = 1
             if event.key == pygame.K_s:
-                fs = 1
+                s_press = 1
             if event.key == pygame.K_d:
-                fd = 1
-            #if event.key == pygame.K_SPACE:
-            #    bombs.append(Bomb(screen, tank.x,tank.y))
+                d_press = 1
+            if event.key == pygame.K_UP:
+                up_press = 1
+            if event.key == pygame.K_LEFT:
+                left_press = 1
+            if event.key == pygame.K_DOWN:
+                down_press = 1
+            if event.key == pygame.K_RIGHT:
+                right_press = 1
         elif event.type == pygame.KEYUP:
+            if event.key == pygame.K_f:
+                tank1.fire2_end(elastic_bullets)
+            if event.key == pygame.K_g:
+                mg_start1 = 0
+            if event.key == pygame.K_o:
+                tank2.fire2_end(elastic_bullets)
+            if event.key == pygame.K_p:
+                mg_start2 = 0
             if event.key == pygame.K_w:
-                fw = 0
+                w_press = 0
             if event.key == pygame.K_a:
-                fa = 0
+                a_press = 0
             if event.key == pygame.K_s:
-                fs = 0
+                s_press = 0
             if event.key == pygame.K_d:
-                fd = 0
+                d_press = 0
+            if event.key == pygame.K_UP:
+                up_press = 0
+            if event.key == pygame.K_LEFT:
+                left_press = 0
+            if event.key == pygame.K_DOWN:
+                down_press = 0
+            if event.key == pygame.K_RIGHT:
+                right_press = 0
 
     #блок обработки механики
     
-    if fw == 1 and fs == 0:
-        tank.speed_up()
-    elif fs == 1 and fw == 0:
-        tank.speed_down()
-    if fa == 1 and fd == 0:
-        tank.turn_left()
-    elif fa == 0 and fd == 1:
-        tank.turn_right()
+    if w_press == 1 and s_press == 0:
+        tank1.speed_up()
+    elif s_press == 1 and w_press == 0:
+        tank1.speed_down()
+    if a_press and d_press == 0:
+        tank1.turn_left()
+    elif a_press == 0 and d_press == 1:
+        tank1.turn_right()
+    if up_press == 1 and down_press == 0:
+        tank2.speed_up()
+    elif down_press == 1 and up_press == 0:
+        tank2.speed_down()
+    if left_press == 1 and right_press == 0:
+        tank2.turn_left()
+    elif left_press == 0 and right_press == 1:
+        tank2.turn_right()
         
     while len(targets)<TARGETS_ON_SCREEN:
         targets.append(Target(screen))
@@ -516,6 +585,17 @@ while not finished:
             if eb.hittest(ht):
                 elastic_bullets.remove(eb)
                 ht.hp -= 1
+        for bomb in bombs:
+            if eb.hittest(bomb):
+                bomb.make_pairs()
+                bomb.boom_started = True
+        if tank1.hittest(eb):
+            tank1.hp -= 1
+            elastic_bullets.remove(eb)
+        if tank2.hittest(eb):
+            tank2.hp -= 1
+            elastic_bullets.remove(eb)
+            
     
     for b in bullets:
         b.move()
@@ -529,6 +609,16 @@ while not finished:
             if b.hittest(ht):
                 bullets.remove(b)
                 ht.hp -= 1
+        for bomb in bombs:
+            if b.hittest(bomb):
+                bomb.make_pairs()
+                bomb.boom_started = True
+        if tank1.hittest(b):
+            tank1.hp -= 1
+            bullets.remove(ab)
+        if tank2.hittest(b):
+            tank2.hp -= 1
+            bullets.remove(b)
                     
     for bomb in bombs:
         bomb.move()
@@ -537,9 +627,15 @@ while not finished:
             bomb.boom_time -= 1
         bomb.check_activ()
         if bomb.activ  :
-            if bomb.check_dang_zone(tank):
-                tank.hp -= 1
-        if bomb.boom_time <= 0:
+            if bomb.check_dang_zone(tank1) and not(bomb.boom_started):
+                tank1.hp -= 1
+                bomb.make_pairs()
+                bomb.boom_started = True
+            if bomb.check_dang_zone(tank2) and not(bomb.boom_started):
+                tank2.hp -= 1
+                bomb.make_pairs()
+                bomb.boom_started = True
+        if bomb.boom_time <= 0 or bomb.y >= HEIGHT+bomb.boom_r:
             bombs.remove(bomb)
     
     for ht in hard_targets:
@@ -556,15 +652,28 @@ while not finished:
             targets.remove(t)
             points += 1
             
-    if tank.cooldawn > 0:
-        tank.cooldawn -= 1
-    if tank.mg_cd > 0:
-        tank.mg_cd -= 1
-    tank.move()
-    tank.power_up()
-    if mg_start == 1:
-        tank.use_mg(bullets)
-
+    if tank1.cooldawn > 0:
+        tank1.cooldawn -= 1
+    if tank1.mg_cd > 0:
+        tank1.mg_cd -= 1
+    if tank2.cooldawn > 0:
+        tank2.cooldawn -= 1
+    if tank2.mg_cd > 0:
+        tank2.mg_cd -= 1
+    tank1.move()
+    tank1.power_up()
+    tank2.move()
+    tank2.power_up()
+    if mg_start1 == 1:
+        tank1.use_mg(bullets)
+    if mg_start2 == 1:
+        tank2.use_mg(bullets)
+    if tank1.hp <= 0:
+        print("Player 2 win!")
+        finished = True
+    if tank2.hp <= 0:
+        print("Player 1 win!")
+        finished = True
 print("Your score:", points)
 pygame.quit()
 
